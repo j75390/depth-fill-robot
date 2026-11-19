@@ -80,6 +80,32 @@ canvas{width:100%;max-width:100%;aspect-ratio:4/3;border-radius:8px;background:#
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
 
+/* 왜 만들었나 */
+.story{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:28px;align-items:start}
+.story-text{display:flex;flex-direction:column;gap:14px;max-width:66ch}
+.story-text p{color:var(--muted)}
+.story-text p b{color:var(--ink)}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.checks li{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.checks li span{font:600 12px var(--font-mono);color:var(--fill)}
+.checks li p{color:var(--muted);font-size:14px}
+
+/* 세밀 측정 */
+.tbl{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.tbl table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+.tbl th,.tbl td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl thead th{color:var(--muted);font-weight:500;font-size:12px}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.mono,.tbl th.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.tbl .win{color:var(--fill);font-weight:600}
+.tbl .gain{color:var(--good)}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.pair figure{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.pair img{width:100%;border-radius:10px;background:#fff;display:block}
+.callout{border-left:3px solid var(--bad);padding:6px 0 6px 14px;color:var(--muted);max-width:72ch}
+.callout b{color:var(--ink)}
+
 /* 과정 */
 .steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;counter-reset:s}
 .steps li{counter-increment:s;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -96,7 +122,7 @@ canvas{width:100%;max-width:100%;aspect-ratio:4/3;border-radius:8px;background:#
 footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
 
 @media (max-width:860px){
-  .lab{grid-template-columns:minmax(0,1fr)}
+  .lab,.story,.pair{grid-template-columns:minmax(0,1fr)}
   .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
   .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -120,8 +146,8 @@ footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);paddin
     <div class="scale-l mono" aria-hidden="true"><span>가까움</span><span>깊이 색 (검은 곳 = 빈칸)</span><span>멂</span></div>
   </div>
   <div class="stats">
-    <div class="stat"><b class="mono">4/4</b><small>구멍 유형 모두 OpenCV Telea보다 낮은 오차</small></div>
-    <div class="stat"><b class="mono">−22%</b><small>반사 면 구멍 오차 (7.2 → 5.6cm)</small></div>
+    <div class="stat"><b class="mono">4/4</b><small>구멍 유형 모두 OpenCV Telea보다 낮은 오차 (학습 3번 모두)</small></div>
+    <div class="stat"><b class="mono">−13%</b><small>반사 면 구멍 오차, 학습 3번 평균 (가장 잘 나온 번 −22%)</small></div>
     <div class="stat"><b class="mono">654</b><small>실제 센서 시험 장면 (NYU Depth v2 공식 분할)</small></div>
     <div class="stat"><b class="mono">17</b><small>자동 시험 · 품질 기준 시험으로 배포 차단</small></div>
   </div>
@@ -131,6 +157,23 @@ footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);paddin
     <a class="btn" href="https://github.com/j75390/depth-fill-robot/blob/main/docs/decision-log.md">판단 기록</a>
   </div>
 </header>
+
+<section aria-labelledby="why-h">
+  <div class="eyebrow">왜 만들었나</div>
+  <h2 id="why-h">평균 점수 하나로는 로봇에게 필요한 걸 알 수 없었습니다</h2>
+  <div class="story">
+    <div class="story-text">
+      <p><b>출발점은 로봇 집기였습니다.</b> 로봇 팔은 깊이 카메라로 물건까지의 거리를 봅니다. 그런데 깊이 카메라는 빛을 쏘고 돌아오는 것으로 거리를 재서, 하필 로봇이 자주 다루는 물건 앞에서 비어 버립니다. 유리컵은 빛이 통과하고, 금속은 빛이 튕겨 나가고, 물건 가장자리는 앞뒤가 섞입니다. 빈칸을 "아무것도 없다"로 읽으면 로봇은 허공을 집거나 부딪힙니다.</p>
+      <p><b>처음 계획은 "모델로 채우고 가상 로봇으로 집기 성공률을 올린다"였습니다.</b> 그런데 깊이 보완 모델은 보통 평균 오차 하나로 비교됩니다. 로봇에게 중요한 건 평균이 아니라 어디서 틀리느냐입니다. 벽 한가운데서 2cm 틀리는 것과 컵 가장자리에서 2cm 틀리는 것은 전혀 다른 일입니다.</p>
+      <p><b>그래서 순서를 바꿨습니다.</b> 모델보다 먼저 "어떤 방법이 어떤 빈칸에서 얼마나 틀리는지"를 같은 시험지로 재는 도구를 세우고, 그 위에서 모델을 만들었습니다. 채점이 틀리면 그 위의 결론이 다 틀리기 때문입니다.</p>
+    </div>
+    <ul class="checks" aria-label="이 결정이 맞았던 순간">
+      <li><span>확인 1 · 정답의 함정</span><p>데이터셋의 "정답 깊이"는 못 잰 곳을 이미 알고리즘으로 채운 값이었습니다. 센서가 실제로 잰 픽셀만 정답으로 쓰도록 바꿨습니다.</p></li>
+      <li><span>확인 2 · 기준선 버그</span><p>OpenCV Telea가 평균 채우기보다 나빴습니다. 원인은 입력 형식. 못 잡았으면 "내 모델이 크게 이겼다"는 틀린 결론이었습니다.</p></li>
+      <li><span>확인 3 · 표본 크기</span><p>시험 장면 앞 60장만 쓰면 한 유형에서 결론이 뒤집혔습니다. 판정은 항상 654장 전체로 합니다.</p></li>
+    </ul>
+  </div>
+</section>
 
 <section id="lab" aria-labelledby="lab-h">
   <div class="eyebrow">직접 보기</div>
@@ -163,11 +206,63 @@ footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);paddin
 </section>
 
 <section aria-labelledby="res-h">
-  <div class="eyebrow">결과 · 시험 654장 · 구멍 비율 약 15% · 시드 42</div>
+  <div class="eyebrow">결과 · 시험 654장 · 구멍 비율 약 15% · 대표 모델(시드 42)</div>
   <h2 id="res-h">한 가지를 바꿔서 기준선을 넘었습니다</h2>
   <p class="lead">처음에는 구멍 속 깊이를 통째로 맞히게 했고 네 유형 모두 Telea보다 나빴습니다. Telea로 먼저 채운 값을 입력으로 주고 <b>보정값만</b> 배우게 바꾸자 네 유형 모두 넘었습니다. 장면 짝 비교 95% 구간이 모두 0 아래입니다.</p>
   <div class="legend"><span><i style="background:var(--telea)"></i>OpenCV Telea (기준선)</span><span><i style="background:#4a5163"></i>U-Net 1차 (통째로)</span><span><i style="background:var(--fill)"></i>U-Net 2차 (보정값만)</span></div>
   <div class="chart"><svg id="chart" viewBox="0 0 760 300" role="img" aria-label="구멍 유형별 평균 오차 막대 그래프"></svg></div>
+</section>
+
+<section aria-labelledby="detail-h">
+  <div class="eyebrow">더 세밀하게 · 실측 픽셀 642만 개 · scripts/analyze.py</div>
+  <h2 id="detail-h">평균을 쪼개 보면 보이는 것</h2>
+  <p class="lead">아래 값은 픽셀 단위로 모은 값이라 위 그래프(장면별 평균)와 소수점이 조금 다릅니다. 모든 구멍 유형 합계.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>로봇 기준 지표</th><th>OpenCV Telea</th><th>U-Net (깊이)</th></tr></thead>
+    <tbody>
+      <tr><td>평균 오차</td><td class="mono">10.4cm</td><td class="mono win">9.2cm</td></tr>
+      <tr><td>상대 오차 (거리 대비)</td><td class="mono">3.9%</td><td class="mono win">3.4%</td></tr>
+      <tr><td>5% 안으로 맞힌 픽셀 (3m면 ±15cm)</td><td class="mono">80.5%</td><td class="mono win">83.5%</td></tr>
+      <tr><td>5cm 넘게 틀린 픽셀</td><td class="mono">40.2%</td><td class="mono win">36.4%</td></tr>
+      <tr><td>10cm 넘게 틀린 픽셀</td><td class="mono">24.0%</td><td class="mono win">20.7%</td></tr>
+    </tbody></table></div>
+  <p class="callout"><b>그대로 믿고 집으면 안 됩니다.</b> 두 방법 모두 빈칸 픽셀의 1/3 이상이 5cm 넘게 틀립니다. 물건을 집으려면 1~2cm 정확도가 필요합니다. 다음 단계가 "이 픽셀을 얼마나 믿어도 되나"를 함께 내는 불확실도인 이유입니다.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>빈칸 가장자리에서 안쪽 거리</th><th class="mono">1~2px</th><th class="mono">2~4px</th><th class="mono">4~8px</th><th class="mono">8~16px</th><th class="mono">16px+</th></tr></thead>
+    <tbody>
+      <tr><td>OpenCV Telea</td><td class="mono">8.3</td><td class="mono">9.5</td><td class="mono">13.8</td><td class="mono">21.7</td><td class="mono">30.4cm</td></tr>
+      <tr><td>U-Net (깊이)</td><td class="mono">8.0</td><td class="mono">8.8</td><td class="mono">11.9</td><td class="mono">17.7</td><td class="mono">23.9cm</td></tr>
+      <tr><td>줄어든 비율</td><td class="mono gain">−4%</td><td class="mono gain">−7%</td><td class="mono gain">−14%</td><td class="mono gain">−18%</td><td class="mono gain">−21%</td></tr>
+    </tbody></table></div>
+  <div class="tbl"><table>
+    <thead><tr><th>실제 거리</th><th class="mono">~1.5m</th><th class="mono">1.5~2.5m</th><th class="mono">2.5~3.5m</th><th class="mono">3.5~5m</th><th class="mono">5m~</th></tr></thead>
+    <tbody>
+      <tr><td>OpenCV Telea</td><td class="mono">6.5</td><td class="mono">8.2</td><td class="mono">10.0</td><td class="mono">13.6</td><td class="mono">24.1cm</td></tr>
+      <tr><td>U-Net (깊이)</td><td class="mono">5.7</td><td class="mono">6.8</td><td class="mono">8.8</td><td class="mono">12.6</td><td class="mono">23.7cm</td></tr>
+      <tr><td>줄어든 비율</td><td class="mono gain">−12%</td><td class="mono gain">−17%</td><td class="mono gain">−12%</td><td class="mono gain">−7%</td><td class="mono">−2%</td></tr>
+    </tbody></table></div>
+  <p class="lead"><b>빈칸 깊숙한 곳일수록, 로봇 팔이 닿는 가까운 거리일수록</b> 모델의 이득이 큽니다. Telea는 둘레 값을 이어 붙이는 방식이라 가장자리 근처는 잘하지만 안쪽으로 갈수록 근거가 없어집니다. "Telea 결과 + 보정값"으로 바꾼 2차 모델이 이긴 이유도 이것으로 설명됩니다. 5m 넘는 먼 곳은 둘 다 크게 틀립니다.</p>
+  <div class="pair">
+    <figure><img src="images/analysis_distance.png" alt="빈칸 가장자리에서 안쪽 거리별 오차 그래프" loading="lazy"><figcaption>빈칸 가장자리에서 안쪽 거리별 오차</figcaption></figure>
+    <figure><img src="images/analysis_ratio.png" alt="가린 비율 5~35%별 오차 그래프" loading="lazy"><figcaption>가린 비율 5~35% (모델은 15%로만 학습). 크기가 바뀌어도 순서는 그대로</figcaption></figure>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>학습 3번 반복 (cm)</th><th>Telea</th><th class="mono">시드 42</th><th class="mono">시드 1</th><th class="mono">시드 2</th><th>평균 ± 편차</th><th>Telea 대비</th></tr></thead>
+    <tbody>
+      <tr><td>반사 면</td><td class="mono">7.15</td><td class="mono">5.56</td><td class="mono">6.13</td><td class="mono">6.97</td><td class="mono">6.22 ± 0.71</td><td class="mono gain">−13%</td></tr>
+      <tr><td>무작위</td><td class="mono">14.75</td><td class="mono">12.98</td><td class="mono">14.00</td><td class="mono">14.74</td><td class="mono">13.91 ± 0.88</td><td class="mono gain">−6%</td></tr>
+      <tr><td>실제 센서 누락</td><td class="mono">7.61</td><td class="mono">7.31</td><td class="mono">7.45</td><td class="mono">7.59</td><td class="mono">7.45 ± 0.14</td><td class="mono gain">−2%</td></tr>
+      <tr><td>물체 가장자리</td><td class="mono">10.74</td><td class="mono">10.47</td><td class="mono">10.54</td><td class="mono">10.70</td><td class="mono">10.57 ± 0.12</td><td class="mono gain">−2%</td></tr>
+    </tbody></table></div>
+  <p class="callout"><b>대표 모델(시드 42)이 세 번 중 가장 잘 나온 경우였습니다.</b> 시드 42는 계획 단계부터 정해 둔 값이라 골라 낸 것은 아니지만 운이 좋았습니다. 세 번 모두 Telea보다 낮았지만, 시드 2는 무작위 유형에서 14.74 대 14.75cm로 사실상 비겼습니다. 믿을 만한 숫자는 세 번 평균으로 봅니다. 학습 장면이 716장뿐이라 흔들리는 것으로 보이고, 세 모델 평균(앙상블)과 데이터 늘리기가 다음 시도입니다.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>속도 (120x160 한 장, 중앙값)</th><th>중앙값</th><th>95%</th></tr></thead>
+    <tbody>
+      <tr><td>OpenCV Telea (CPU)</td><td class="mono">1.6ms</td><td class="mono">1.8ms</td></tr>
+      <tr><td>U-Net 깊이 (GPU, 선채움 포함)</td><td class="mono">4.3ms</td><td class="mono">6.6ms</td></tr>
+      <tr><td>U-Net 깊이 (CPU, 선채움 포함)</td><td class="mono">22.6ms</td><td class="mono">24.7ms</td></tr>
+    </tbody></table></div>
+  <p class="lead">카메라 한 프레임(30fps면 33ms) 안에 들어옵니다. 원본 해상도(640x480)는 픽셀이 16배라 따로 재지 않았습니다.</p>
 </section>
 
 <section aria-labelledby="demo-h">
