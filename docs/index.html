@@ -110,13 +110,14 @@ footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);paddin
 <div class="wrap">
 
 <header class="hero">
-  <div class="eyebrow">RGB-D 깊이 보완 · 개인 프로젝트</div>
-  <h1>depth-fill-robot
-    <span>로봇 카메라 깊이 영상에서 측정값이 빠진 곳을 채우고, 어떤 방법이 어디서 틀리는지 공정하게 재는 도구</span>
+  <div class="eyebrow">개인 프로젝트 · 로봇 비전 · 깊이 카메라</div>
+  <h1>로봇 카메라가 못 본 곳 채우기
+    <span class="mono">depth-fill-robot</span>
   </h1>
+  <p class="lead">로봇은 깊이 카메라로 물건까지의 거리를 봅니다. 그런데 유리컵·창문처럼 투명한 것, 반짝이는 면, 물체 가장자리에서는 거리를 못 재고 <b>빈칸(구멍)</b>이 생깁니다. 빈칸을 그대로 두면 로봇이 "거기엔 아무것도 없다"고 착각해 물건을 잘못 집거나 부딪힐 수 있습니다. 이 빈칸을 채우는 방법들을 <b>같은 시험지로 채점</b>해 어디서 틀리는지 밝히고, 기존 방법보다 덜 틀리는 모델을 만들었습니다.</p>
   <div>
     <div class="scale" aria-hidden="true"></div>
-    <div class="scale-l mono" aria-hidden="true"><span>가까움</span><span>깊이 색</span><span>멂</span></div>
+    <div class="scale-l mono" aria-hidden="true"><span>가까움</span><span>깊이 색 (검은 곳 = 빈칸)</span><span>멂</span></div>
   </div>
   <div class="stats">
     <div class="stat"><b class="mono">4/4</b><small>구멍 유형 모두 OpenCV Telea보다 낮은 오차</small></div>
