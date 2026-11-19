@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>깊이 보완 뷰어</title>
+<style>
+  :root{--bg:#111318;--panel:#1b1e25;--line:#2c313b;--ink:#e8eaee;--muted:#9aa1ad;--accent:#ff8a3d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Pretendard","Malgun Gothic",system-ui,sans-serif}
+  header{padding:18px 20px 6px}
+  h1{margin:0;font-size:20px}
+  header p{margin:4px 0 0;color:var(--muted)}
+  .bar{display:flex;flex-wrap:wrap;gap:10px;padding:12px 20px}
+  .bar label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:12px}
+  select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit}
+  main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:8px 20px 30px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .card h2{margin:0 0 8px;font-size:15px}
+  .cmp{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;border-radius:8px;user-select:none;touch-action:none;cursor:ew-resize}
+  .cmp img{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+  .cmp .after{clip-path:inset(0 0 0 50%)}
+  .cmp .knob{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#fff;box-shadow:0 0 6px #000}
+  .cmp .tag{position:absolute;top:8px;padding:2px 8px;border-radius:6px;background:#000a;font-size:12px}
+  .cmp .tl{left:8px}.cmp .tr{right:8px}
+  canvas{width:100%;aspect-ratio:4/3;border-radius:8px;background:#05060a;cursor:grab;touch-action:none}
+  .row{display:flex;gap:8px;margin-top:10px}
+  .row figure{flex:1;margin:0}
+  .row img{width:100%;border-radius:6px;image-rendering:pixelated}
+  figcaption{color:var(--muted);font-size:12px;margin-top:2px}
+  .mae{color:var(--accent);font-weight:700}
+  .hint{color:var(--muted);font-size:12px;margin-top:6px}
+  @media (max-width:820px){main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>깊이 보완 전/후 뷰어</h1>
+  <p>NYU Depth v2 시험 장면에 구멍을 내고 각 방법으로 채운 결과입니다. 오차(MAE)는 센서가 실제로 잰 픽셀에서만 잽니다.</p>
+</header>
+<div class="bar">
+  <label>장면<select id="scene"></select></label>
+  <label>구멍 유형<select id="kind"></select></label>
+  <label>보완 방법<select id="method"></select></label>
+</div>
+<main>
+  <section class="card">
+    <h2>전/후 비교 <span class="mae" id="mae"></span></h2>
+    <div class="cmp" id="cmp">
+      <img id="before" alt="구멍 난 입력"><img id="after" class="after" alt="보완 결과">
+      <div class="knob" id="knob"></div><span class="tag tl">입력(구멍)</span><span class="tag tr">보완 후</span>
+    </div>
+    <div class="row">
+      <figure><img id="rgb" alt="컬러"><figcaption>컬러</figcaption></figure>
+      <figure><img id="gt" alt="실측 깊이"><figcaption>실측 깊이(검은 곳은 센서가 못 잰 곳)</figcaption></figure>
+    </div>
+  </section>
+  <section class="card">
+    <h2>3D 점으로 보기</h2>
+    <canvas id="cv" width="640" height="480"></canvas>
+    <p class="hint">끌어서 돌려 보세요. 주황색 점이 구멍을 채운 부분입니다.</p>
+  </section>
+</main>
+<script src="data.js"></script>
+<script>
+const D = window.VIEWER_DATA, $ = (id) => document.getElementById(id);
+const opt = (sel, entries) => { sel.innerHTML = entries.map(([v, t]) => `<option value="${v}">${t}</option>`).join(''); };
+opt($('scene'), D.scenes.map((s, i) => [i, s.name]));
+opt($('kind'), Object.entries(D.kinds));
+opt($('method'), Object.entries(D.methods));
+$('method').value = 'unet_rgbd';
+
+let yaw = -0.5, pitch = 0.25, cur = null;
+function render() {
+  const s = D.scenes[$('scene').value], c = s.cases[$('kind').value], m = c.methods[$('method').value];
+  $('before').src = c.input; $('after').src = m.img; $('rgb').src = s.rgb; $('gt').src = s.gt;
+  $('mae').textContent = `MAE ${m.mae.toFixed(3)}m`;
+  cur = { s, c, m }; draw();
+}
+// NYU 카메라(fx≈518.9, cx≈325.6, cy≈253.7)를 자르고 줄인 크기에 맞춘 값
+function draw() {
+  if (!cur) return;
+  const { s, c, m } = cur, [h, w] = s.size, cv = $('cv'), g = cv.getContext('2d');
+  const sc = w / 560, fx = 518.9 * sc, cx = (325.6 - 41) * sc, cy = (253.7 - 45) * sc;
+  g.fillStyle = '#05060a'; g.fillRect(0, 0, cv.width, cv.height);
+  const pts = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const k = y * w + x, z = m.points[k]; if (!(z > 0)) continue;
+    let X = (x - cx) * z / fx, Y = (y - cy) * z / fx, Z = z - 2.5;
+    const X1 = X * Math.cos(yaw) - Z * Math.sin(yaw), Z1 = X * Math.sin(yaw) + Z * Math.cos(yaw);
+    const Y2 = Y * Math.cos(pitch) - Z1 * Math.sin(pitch), Z2 = Y * Math.sin(pitch) + Z1 * Math.cos(pitch) + 4;
+    if (Z2 <= 0.1) continue;
+    pts.push([Z2, X1 / Z2, Y2 / Z2, c.hole[k], k]);
+  }
+  pts.sort((a, b) => b[0] - a[0]);
+  const f = cv.width * 0.9;
+  for (const [z, u, v, hole, k] of pts) {
+    g.fillStyle = hole ? '#ff8a3d' : `rgb(${s.colors[k * 3]},${s.colors[k * 3 + 1]},${s.colors[k * 3 + 2]})`;
+    const r = Math.max(2, 10 / z);
+    g.fillRect(cv.width / 2 + u * f, cv.height / 2 + v * f, r, r);
+  }
+}
+['scene', 'kind', 'method'].forEach((id) => $(id).addEventListener('change', render));
+// 전/후 슬라이더
+const cmp = $('cmp');
+const slide = (e) => { const r = cmp.getBoundingClientRect(), p = Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100));
+  $('after').style.clipPath = `inset(0 0 0 ${p}%)`; $('knob').style.left = p + '%'; };
+cmp.addEventListener('pointerdown', (e) => { cmp.setPointerCapture(e.pointerId); slide(e); });
+cmp.addEventListener('pointermove', (e) => { if (e.buttons) slide(e); });
+// 3D 회전
+let drag = null; const cv = $('cv');
+cv.addEventListener('pointerdown', (e) => { drag = [e.clientX, e.clientY, yaw, pitch]; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', (e) => { if (!drag) return; yaw = drag[2] + (e.clientX - drag[0]) * 0.01; pitch = Math.max(-1.2, Math.min(1.2, drag[3] + (e.clientY - drag[1]) * 0.01)); draw(); });
+cv.addEventListener('pointerup', () => { drag = null; });
+render();
+</script>
+</body>
+</html>
