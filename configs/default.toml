@@ -5,12 +5,22 @@ seed = 42
 root = "data"
 image_size = [120, 160]   # [높이, 너비]. VRAM에 맞게 조정한다
 max_depth = 10.0          # 미터
+nyu_mat = "data/nyu_depth_v2_labeled.mat"
+nyu_splits = "data/splits.mat"
+nyu_npz = "data/nyu_120x160.npz"
 
 [holes]
 ratio = 0.15              # 구멍이 차지할 비율(대략)
-kinds = ["random", "edge", "reflect"]
+kinds = ["random", "edge", "reflect", "sensor"]
 
 [eval]
 results_dir = "results"
-n_samples = 50
-methods = ["nofill", "meanfill", "diffusion"]
+n_samples = 654           # NYU 공식 시험 분할 전체
+methods = ["nofill", "meanfill", "diffusion", "opencv_telea", "unet_depth", "unet_rgbd"]
+
+[train]
+epochs = 60
+batch_size = 16
+lr = 0.001
+base_channels = 32        # U-Net 첫 단계 채널 수
+val_fraction = 0.1        # 학습 분할 중 검증으로 떼어 둘 비율(가장 좋은 에폭 고르기)
