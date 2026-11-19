@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import numpy as np
 
-HOLE_KINDS = ("random", "edge", "reflect")
+HOLE_KINDS = ("random", "edge", "reflect", "sensor")
 
 
 def dilate(mask: np.ndarray, r: int) -> np.ndarray:
@@ -55,7 +55,7 @@ def edge_holes(depth: np.ndarray, rng: np.random.Generator, ratio: float) -> np.
     frac = band.mean()
     if frac <= ratio:
         return band
-    block = 6
+    block = 3  # 6이면 실제 이미지에서 계단처럼 보여 3으로 줄였다(판단 기록 2026-11-19)
     coarse = (rng.random((h // block + 1, w // block + 1)) < ratio / frac).astype(np.uint8)
     keep = np.kron(coarse, np.ones((block, block), np.uint8)).astype(bool)[:h, :w]
     return band & keep
@@ -75,12 +75,26 @@ def reflective_holes(rgb: np.ndarray, rng: np.random.Generator, ratio: float) ->
     return smooth & (b >= thr)
 
 
+def sensor_holes(pool: np.ndarray, rng: np.random.Generator, exclude: int | None = None) -> np.ndarray:
+    """실제 센서가 값을 못 잰 모양을 다른 장면에서 빌려 온다(사람이 만든 규칙이 아닌 실제 누락 패턴).
+
+    pool: (N, H, W) bool, 실제 누락 마스크 모음. exclude: 지금 장면의 번호(자기 자신의 누락은 쓰지 않는다).
+    """
+    choices = [i for i in range(len(pool)) if i != exclude]
+    return pool[int(rng.choice(choices))].copy()
+
+
 def make_holes(kind: str, rgb: np.ndarray, depth: np.ndarray,
-               rng: np.random.Generator, ratio: float) -> np.ndarray:
+               rng: np.random.Generator, ratio: float,
+               sensor_pool: np.ndarray | None = None, index: int | None = None) -> np.ndarray:
     if kind == "random":
         return random_blobs(depth, rng, ratio)
     if kind == "edge":
         return edge_holes(depth, rng, ratio)
     if kind == "reflect":
         return reflective_holes(rgb, rng, ratio)
+    if kind == "sensor":
+        if sensor_pool is None:
+            raise ValueError("sensor 구멍은 실제 누락 마스크 모음(sensor_pool)이 있어야 만든다")
+        return sensor_holes(sensor_pool, rng, exclude=index)
     raise ValueError(f"알 수 없는 구멍 유형: {kind} (가능: {HOLE_KINDS})")
