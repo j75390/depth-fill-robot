@@ -12,26 +12,42 @@ from depthfill.eval.metrics import masked_errors
 from depthfill.holes.generators import make_holes
 
 
-def evaluate(dataset, methods, kinds, ratio: float, seed: int) -> list[dict]:
+def make_case(sample, kind: str, k_index: int, index: int, ratio: float, seed: int, sensor_pool=None):
+    """한 장면·한 구멍 유형의 입력을 만든다. 같은 인자면 항상 같은 구멍이 나온다.
+
+    방법에 넘기는 입력은 '센서가 잰 값 - 우리가 뚫은 구멍'이다. 실제 데이터(NYU)에는 센서가 원래 못 잰 곳도
+    있으므로 그곳도 값이 없는 채로 넘긴다. 정답 깊이는 방법에 넘기지 않는다.
+    """
+    rng = np.random.default_rng([seed, index, k_index])
+    hole = make_holes(kind, sample.rgb, sample.depth, rng, ratio, sensor_pool=sensor_pool, index=index)
+    raw_valid = getattr(sample, "raw_valid", None)
+    measured = np.ones_like(hole) if raw_valid is None else raw_valid
+    valid = measured & ~hole
+    holed = np.where(valid, sample.depth, 0.0).astype(np.float32)
+    return hole, valid, holed
+
+
+def evaluate(dataset, methods, kinds, ratio: float, seed: int, sensor_pool=None) -> list[dict]:
     """모든 (장면 × 구멍 유형 × 방법) 조합의 오차를 한 줄씩 돌려준다.
 
     같은 장면·유형이면 방법과 상관없이 같은 구멍을 쓴다(공정한 비교).
+    실제 데이터는 두 기준으로 잰다: 채운 정답 전체(mae, rmse)와 센서가 실제로 잰 픽셀만(mae_raw, rmse_raw).
     """
     rows = []
     for index in range(len(dataset)):
         sample = dataset[index]
+        raw_valid = getattr(sample, "raw_valid", None)
         for k_index, kind in enumerate(kinds):
-            rng = np.random.default_rng([seed, index, k_index])
-            hole = make_holes(kind, sample.rgb, sample.depth, rng, ratio)
-            valid = ~hole
-            holed = np.where(valid, sample.depth, 0.0).astype(np.float32)
+            hole, valid, holed = make_case(sample, kind, k_index, index, ratio, seed, sensor_pool)
             for method in methods:
                 pred = method.fill(holed, valid, sample.rgb)
                 err = masked_errors(pred, sample.depth, hole)
-                rows.append({
-                    "sample": sample.name, "kind": kind, "method": method.name,
-                    "hole_ratio": float(hole.mean()), **err,
-                })
+                row = {"sample": sample.name, "kind": kind, "method": method.name,
+                       "hole_ratio": float(hole.mean()), **err}
+                if raw_valid is not None:
+                    raw_err = masked_errors(pred, sample.depth, hole & raw_valid)
+                    row.update(mae_raw=raw_err["mae"], rmse_raw=raw_err["rmse"], n_raw=raw_err["n"])
+                rows.append(row)
     return rows
 
 
@@ -41,14 +57,19 @@ def summarize(rows: list[dict]) -> dict:
     for row in rows:
         if row["n"] > 0:
             groups[(row["kind"], row["method"])].append(row)
-    return {
-        f"{kind}/{method}": {
+    out = {}
+    for (kind, method), rs in sorted(groups.items()):
+        entry = {
             "mae": float(np.mean([r["mae"] for r in rs])),
             "rmse": float(np.mean([r["rmse"] for r in rs])),
             "samples": len(rs),
         }
-        for (kind, method), rs in sorted(groups.items())
-    }
+        raw = [r for r in rs if r.get("n_raw", 0) > 0]
+        if raw:
+            entry["mae_raw"] = float(np.mean([r["mae_raw"] for r in raw]))
+            entry["rmse_raw"] = float(np.mean([r["rmse_raw"] for r in raw]))
+        out[f"{kind}/{method}"] = entry
+    return out
 
 
 def worst_cases(rows: list[dict], method: str, top: int = 5) -> list[dict]:
@@ -58,9 +79,15 @@ def worst_cases(rows: list[dict], method: str, top: int = 5) -> list[dict]:
 
 
 def format_table(summary: dict) -> str:
-    lines = [f"{'유형/방법':<24}{'MAE(m)':>10}{'RMSE(m)':>10}{'장면수':>8}"]
+    has_raw = any("mae_raw" in v for v in summary.values())
+    head = f"{'유형/방법':<26}{'MAE(m)':>9}{'RMSE(m)':>9}"
+    head += f"{'MAE실측':>9}{'RMSE실측':>9}" if has_raw else ""
+    lines = [head + f"{'장면수':>7}"]
     for key, v in summary.items():
-        lines.append(f"{key:<24}{v['mae']:>10.4f}{v['rmse']:>10.4f}{v['samples']:>8d}")
+        line = f"{key:<26}{v['mae']:>9.4f}{v['rmse']:>9.4f}"
+        if has_raw:
+            line += f"{v.get('mae_raw', float('nan')):>9.4f}{v.get('rmse_raw', float('nan')):>9.4f}"
+        lines.append(line + f"{v['samples']:>7d}")
     return "\n".join(lines)
 
 
