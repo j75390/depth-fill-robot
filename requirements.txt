@@ -1,0 +1,5 @@
+# PyTorch는 CUDA 버전에 맞는 명령을 따로 설치한다(docs/HOME_START.md 3단계 참고).
+numpy
+pillow
+matplotlib
+opencv-python-headless

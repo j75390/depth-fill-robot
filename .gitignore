@@ -1,0 +1,25 @@
+# 가상환경·캐시
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# 데이터·결과·체크포인트는 저장소에 넣지 않는다(용량이 크고, 다시 만들 수 있다)
+data/*
+!data/.gitkeep
+results/*
+!results/.gitkeep
+checkpoints/*
+!checkpoints/.gitkeep
+
+# 편집기·운영체제
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 비밀값
+.env
+.env.*

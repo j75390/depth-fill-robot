@@ -1,0 +1,25 @@
+[project]
+name = "depthfill"
+version = "0.1.0"
+description = "깊이 영상 보완 방법을 같은 조건에서 비교하는 평가 도구"
+requires-python = ">=3.11"
+dependencies = ["numpy", "pillow", "matplotlib"]
+
+[project.optional-dependencies]
+cv = ["opencv-python-headless"]
+dev = ["pytest", "ruff"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "scripts"]

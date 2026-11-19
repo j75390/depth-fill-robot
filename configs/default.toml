@@ -1,0 +1,16 @@
+# 실험 기본 설정. 숫자를 바꾸면 판단 기록(docs/decision-log.md)에 이유를 남긴다.
+seed = 42
+
+[data]
+root = "data"
+image_size = [120, 160]   # [높이, 너비]. VRAM에 맞게 조정한다
+max_depth = 10.0          # 미터
+
+[holes]
+ratio = 0.15              # 구멍이 차지할 비율(대략)
+kinds = ["random", "edge", "reflect"]
+
+[eval]
+results_dir = "results"
+n_samples = 50
+methods = ["nofill", "meanfill", "diffusion"]
