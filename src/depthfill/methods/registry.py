@@ -3,13 +3,24 @@ from __future__ import annotations
 
 from .baselines import DiffusionFill, MeanFill, NoFill, OpenCVInpaint
 
+
+def _unet(kind: str):
+    # torch는 모델을 실제로 쓸 때만 가져온다(기준선만 쓰는 시험·평가는 torch 없이 돈다)
+    def factory():
+        from . import unet
+
+        return getattr(unet, kind)()
+
+    return factory
+
+
 _FACTORIES = {
     "nofill": NoFill,
     "meanfill": MeanFill,
     "diffusion": DiffusionFill,
     "opencv_telea": OpenCVInpaint,
-    # TODO(이슈 #5): "unet_depth": UNetDepth
-    # TODO(이슈 #6): "unet_rgbd": UNetRGBD
+    "unet_depth": _unet("unet_depth"),   # 이슈 #5: 깊이만
+    "unet_rgbd": _unet("unet_rgbd"),     # 이슈 #6: 컬러 함께
 }
 
 
