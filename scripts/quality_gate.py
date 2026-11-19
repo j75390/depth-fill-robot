@@ -1,9 +1,13 @@
 """품질 기준 시험(선택 과제 #9): 모델이 가장 강한 기준선보다 나빠지면 실패(종료 코드 1).
 
-모델을 다시 학습하거나 코드를 바꾼 뒤 배포 전에 돌린다. 시험 분할 앞부분 N장, 구멍 유형 4가지에서
+모델을 다시 학습하거나 코드를 바꾼 뒤 배포 전에 돌린다. 시험 분할 전체(654장, 결론과 같은 조건), 구멍 유형 4가지에서
 실측 픽셀 기준 MAE를 비교하고, 같은 모델을 API로 불렀을 때 직접 부른 결과와 같은지도 확인한다.
 
-예) python scripts/quality_gate.py --model unet_rgbd --n 100
+앞부분 몇 장만 쓰면 결과가 뒤집힐 수 있다(실제 센서 누락 유형은 이긴 장면이 60%라, 앞 60장에서는
+Telea가 0.0633m로 U-Net 0.0650m보다 낫게 나왔다). 그래서 기본값은 전체이고 약 35초 걸린다.
+
+예) python scripts/quality_gate.py --model unet_rgbd
+    python scripts/quality_gate.py --model unet_depth --n 100   # 빠른 확인용(판정은 전체로)
 """
 import argparse
 import base64
@@ -27,7 +31,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="unet_rgbd")
     ap.add_argument("--baseline", default="opencv_telea")
-    ap.add_argument("--n", type=int, default=100)
+    ap.add_argument("--n", type=int, default=None, help="시험 장면 수(기본: 전체)")
     args = ap.parse_args()
     ds = NYUDataset(ROOT / cfg["data"]["nyu_npz"], split="test", limit=args.n)
     pool = ds.sensor_masks()
@@ -36,7 +40,7 @@ def main() -> None:
     summary = summarize(evaluate(ds, [model, base], kinds, ratio, seed, sensor_pool=pool))
 
     failures = []
-    print(f"{'구멍 유형':<10}{args.baseline:>14}{args.model:>14}")
+    print("구멍 유형 " + f"{args.baseline:>14}{args.model:>14}")  # 한글 4자(8칸)+공백 2개 = 10칸, 아래 줄과 맞춤
     for kind in kinds:
         b, m = summary[f"{kind}/{args.baseline}"]["mae_raw"], summary[f"{kind}/{args.model}"]["mae_raw"]
         mark = "통과" if m <= b else "실패"
