@@ -55,10 +55,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", choices=sorted(MODELS), required=True)
     ap.add_argument("--epochs", type=int, default=cfg["train"]["epochs"])
+    ap.add_argument("--seed", type=int, default=cfg["seed"],
+                    help="학습 시드(초기값·배치 순서·구멍). 검증 분할은 설정 시드로 고정한다. 기본과 다르면 이름에 _s<시드>가 붙는다")
     args = ap.parse_args()
+    name = args.model if args.seed == cfg["seed"] else f"{args.model}_s{args.seed}"
     use_rgb = MODELS[args.model]
     tc, dc, hc = cfg["train"], cfg["data"], cfg["holes"]
-    set_seed(cfg["seed"])
+    set_seed(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     full = NYUDataset(ROOT / dc["nyu_npz"], split="train")
@@ -76,11 +79,11 @@ def main() -> None:
                            pool, dc["max_depth"], use_rgb, augment=False, prefill=prefill)
 
     history, best, t0 = [], float("inf"), time.time()
-    ckpt_path = ROOT / "checkpoints" / f"{args.model}.pt"
+    ckpt_path = ROOT / "checkpoints" / f"{name}.pt"
     ckpt_path.parent.mkdir(exist_ok=True)
     for epoch in range(1, args.epochs + 1):
         model.train()
-        rng = np.random.default_rng([cfg["seed"], epoch])
+        rng = np.random.default_rng([args.seed, epoch])
         perm = rng.permutation(train_idx)
         losses = []
         for b in range(0, len(perm), tc["batch_size"]):
@@ -101,14 +104,14 @@ def main() -> None:
         if val < best:
             best = val
             torch.save({"state": model.state_dict(), "in_ch": 5 if use_rgb else 2, "base": tc["base_channels"],
-                        "max_depth": dc["max_depth"], "epoch": epoch, "val_mae_m": val_mae, "seed": cfg["seed"],
+                        "max_depth": dc["max_depth"], "epoch": epoch, "val_mae_m": val_mae, "seed": args.seed,
                         "prefill": prefill}, ckpt_path)
-        print(f"[{args.model}] epoch {epoch:3d}  train MAE {train_mae:.4f}m  val MAE {val_mae:.4f}m"
+        print(f"[{name}] epoch {epoch:3d}  train MAE {train_mae:.4f}m  val MAE {val_mae:.4f}m"
               f"{'  *' if val == best else ''}  ({time.time() - t0:.0f}s)", flush=True)
 
-    out = ROOT / "results" / f"train_{args.model}.json"
+    out = ROOT / "results" / f"train_{name}.json"
     out.parent.mkdir(exist_ok=True)
-    out.write_text(json.dumps({"model": args.model, "best_val_mae_m": best * dc["max_depth"], "history": history,
+    out.write_text(json.dumps({"model": args.model, "seed": args.seed, "best_val_mae_m": best * dc["max_depth"], "history": history,
                                "train_images": len(train_idx), "val_images": len(val_idx), "device": device},
                               ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"가장 좋은 검증 MAE {best * dc['max_depth']:.4f}m → {ckpt_path}")
