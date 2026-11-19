@@ -12,7 +12,7 @@
 
 <sub>시험 장면 3개(고르지 않고 뷰어와 같은 번호). 흰 선 안이 채운 곳, 3D의 주황 점이 채운 부분. 첫 장면은 U-Net이 Telea에 진 장면이라 그대로 두었습니다.</sub>
 
-- **소개 페이지**: [docs/index.html](docs/index.html) — 직접 돌려 보는 전/후 비교·3D 점, 결과 그래프, 실패 기록 (`cd docs; python -m http.server` 후 `http://localhost:8000`)
+- **직접 눌러 보기**: **https://j75390.github.io/depth-fill-robot/** — 장면·구멍·방법을 골라 전/후 비교, 3D 점 돌려 보기, 결과 그래프, 실패 기록 (원본: [docs/index.html](docs/index.html))
 - **한 번에 시연**: `python scripts/demo.py` — 데이터 → 구멍 → 비교 → API → 품질 기준(통과/일부러 실패) → 단위 시험 (약 100초)
 - 판단 기록: [docs/decision-log.md](docs/decision-log.md) — 모든 선택의 이유, 잘 안 된 시도, 버그
 - 구조 규칙: [docs/STRUCTURE.md](docs/STRUCTURE.md) · 시작 안내: [docs/HOME_START.md](docs/HOME_START.md)
