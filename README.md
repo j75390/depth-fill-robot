@@ -70,6 +70,8 @@ configs/  src/depthfill/{data,holes,methods,eval}/  scripts/  tests/  docs/
 
 Python · PyTorch · OpenCV · NumPy · matplotlib · pytest · (뷰어) HTML/JavaScript · (선택) Flask
 
+**실행 환경(확인함, 2026-11-19)**: Windows 11 · Python 3.12.10 · PyTorch 2.11.0+cu128 · NVIDIA GeForce RTX 3060 Ti (VRAM 8GB)
+
 ## 7. 위험 요소와 대응
 
 | 위험 | 대응 |
@@ -88,7 +90,8 @@ Python · PyTorch · OpenCV · NumPy · matplotlib · pytest · (뷰어) HTML/Ja
 ## 9. 진행 상태
 
 - [x] 계획 작성
-- [ ] 환경 · 데이터 · 구멍 생성기
+- [x] 환경 (GPU 확인)
+- [ ] 데이터 · 구멍 생성기
 - [ ] 기준선 · 평가 하네스
 - [ ] 모델 A · 모델 B · 개선
 - [ ] 뷰어 · 실패 사례 분석

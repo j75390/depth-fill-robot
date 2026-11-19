@@ -3,3 +3,5 @@ numpy
 pillow
 matplotlib
 opencv-python-headless
+h5py          # NYU Depth v2 원본(.mat, HDF5 형식) 읽기
+scipy         # NYU 공식 학습/시험 분할 파일(splits.mat, 옛 MAT 형식) 읽기
