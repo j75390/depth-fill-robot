@@ -24,3 +24,4 @@ batch_size = 16
 lr = 0.001
 base_channels = 32        # U-Net 첫 단계 채널 수
 val_fraction = 0.1        # 학습 분할 중 검증으로 떼어 둘 비율(가장 좋은 에폭 고르기)
+prefill = "telea"         # 2차 개선: Telea로 먼저 채우고 모델은 잔차만 배운다. 1차(없음)는 ""
