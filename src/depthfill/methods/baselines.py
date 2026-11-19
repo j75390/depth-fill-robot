@@ -51,4 +51,8 @@ class OpenCVInpaint:
 
     def fill(self, depth, valid, rgb=None):
         mask = (~valid).astype(np.uint8)
-        return self._cv2.inpaint(depth.astype(np.float32), mask, self.radius, self._cv2.INPAINT_TELEA)
+        # 실수(float32) 깊이를 그대로 넣으면 이 OpenCV(5.1)에서는 구멍 속 값이 픽셀마다 0.6~3m로 튀었다.
+        # 밀리미터 단위 16비트 정수로 바꿔 넣으면 정상이다(판단 기록 2026-11-19, 시험 test_opencv_telea_is_sane).
+        mm = np.clip(depth * 1000.0, 0, 65535).astype(np.uint16)
+        out = self._cv2.inpaint(mm, mask, self.radius, self._cv2.INPAINT_TELEA).astype(np.float32) / 1000.0
+        return np.where(valid, depth, out).astype(np.float32)
