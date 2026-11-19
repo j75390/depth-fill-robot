@@ -8,11 +8,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from depthfill.config import ROOT, load_config  # noqa: E402
-from depthfill.data.datasets import SyntheticDataset  # noqa: E402
-from depthfill.eval.harness import evaluate, format_table, save_results, summarize  # noqa: E402
-from depthfill.methods.registry import get_methods  # noqa: E402
-from depthfill.seed import set_seed  # noqa: E402
+from depthfill.config import ROOT, load_config
+from depthfill.data.datasets import SyntheticDataset
+from depthfill.eval.harness import evaluate, format_table, save_results, summarize
+from depthfill.methods.registry import get_methods
+from depthfill.seed import set_seed
 
 
 def main() -> None:
