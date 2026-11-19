@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>depth-fill-robot</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* 레이아웃: 깊이 카메라 화면처럼 어두운 바탕 위에, 한 화면 폭 안에서 위→아래로 "직접 보기 → 결과 → 과정 → 실패"를 읽는 한 줄 흐름.
+   색은 깊이 색 지도(turbo) 하나와 '채운 곳' 주황 하나만 쓴다. 의도적으로 어두운 단일 테마. */
+:root{
+  --bg:#0c0e12; --panel:#14171d; --line:#262b34; --ink:#e9ebef; --muted:#9299a6;
+  --fill:#ff8a3d; --good:#5fd08a; --bad:#ff6b6b; --telea:#7f8aa0;
+  --font-body:"IBM Plex Sans KR","Malgun Gothic",system-ui,sans-serif;
+  --font-mono:"JetBrains Mono",Consolas,ui-monospace,monospace;
+  --turbo:linear-gradient(90deg,#30123b,#4662d7,#36aaf9,#1ae4b6,#72fe5e,#c8ef34,#faba39,#f66b19,#ca2a04,#7a0403);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{margin:0;font:15px/1.65 var(--font-body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1080px;margin:0 auto;padding-block:28px 64px;display:flex;flex-direction:column;gap:64px}
+a{color:var(--fill)}
+a:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--fill);outline-offset:2px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.25}
+h2{font-size:24px}
+h3{font-size:16px}
+p{margin:0}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font:600 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lead{color:var(--muted);max-width:66ch}
+section{display:flex;flex-direction:column;gap:18px}
+
+/* 히어로 */
+.hero{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+.hero h1{font-size:clamp(30px,5vw,46px);letter-spacing:-.01em}
+.hero h1 span{display:block;font:500 clamp(16px,2.2vw,20px)/1.5 var(--font-body);color:var(--muted);letter-spacing:0;margin-top:8px}
+.scale{height:6px;border-radius:3px;background:var(--turbo);max-width:360px}
+.scale-l{display:flex;justify-content:space-between;max-width:360px;font:11px var(--font-mono);color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.stat{background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat b{font:600 26px var(--font-mono);font-variant-numeric:tabular-nums}
+.stat small{color:var(--muted);font-size:13px}
+.links{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);text-decoration:none;font-size:14px}
+.btn.primary{background:var(--fill);border-color:var(--fill);color:#1a0d03;font-weight:700}
+
+/* 직접 보기 */
+.lab{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.controls{display:flex;flex-wrap:wrap;gap:8px}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button{font:inherit;font-size:13px;padding:6px 10px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.cmp{position:relative;width:100%;aspect-ratio:4/3;max-width:100%;overflow:hidden;border-radius:8px;user-select:none;touch-action:none;cursor:ew-resize;background:#000}
+.cmp img{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+.cmp .after{clip-path:inset(0 0 0 50%)}
+.cmp .knob{position:absolute;top:0;bottom:0;left:50%;width:2px;background:#fff;box-shadow:0 0 8px #000}
+.cmp .knob::after{content:"";position:absolute;top:50%;left:-9px;width:20px;height:20px;margin-top:-10px;border-radius:50%;background:#fff;box-shadow:0 0 6px #000}
+.tag{position:absolute;top:8px;padding:2px 8px;border-radius:6px;background:#000b;font-size:12px}
+.tl{left:8px}.tr{right:8px}
+.thumbs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.thumbs figure{margin:0;min-width:0}
+.thumbs img{width:100%;border-radius:6px;image-rendering:pixelated;display:block}
+figcaption{color:var(--muted);font-size:12px;margin-top:3px}
+canvas{width:100%;max-width:100%;aspect-ratio:4/3;border-radius:8px;background:#05060a;cursor:grab;touch-action:none;display:block}
+.bars{display:flex;flex-direction:column;gap:6px}
+.bar{display:grid;grid-template-columns:8.5em minmax(0,1fr) 4.6em;gap:8px;align-items:center;font-size:13px}
+.bar .track{height:10px;border-radius:5px;background:#1d2128;overflow:hidden}
+.bar .track i{display:block;height:100%;border-radius:5px;background:var(--telea)}
+.bar.me .track i{background:var(--fill)}
+.bar .v{text-align:right}
+.hint{color:var(--muted);font-size:12px}
+
+/* 결과 차트 */
+.chart{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}
+.chart svg{display:block;width:100%;min-width:560px;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+/* 과정 */
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;counter-reset:s}
+.steps li{counter-increment:s;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.steps li::before{content:counter(s);font:600 13px var(--font-mono);color:var(--fill)}
+.steps p{color:var(--muted);font-size:14px}
+
+/* 정직한 기록 */
+.notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.note{border-left:3px solid var(--line);padding:4px 0 4px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.note.miss{border-color:var(--bad)}
+.note.fix{border-color:var(--good)}
+.note p{color:var(--muted);font-size:14px}
+.wide{width:100%;max-width:100%;border-radius:10px;border:1px solid var(--line);display:block}
+footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+
+@media (max-width:860px){
+  .lab{grid-template-columns:minmax(0,1fr)}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:520px){
+  .steps,.notes{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">RGB-D 깊이 보완 · 개인 프로젝트</div>
+  <h1>depth-fill-robot
+    <span>로봇 카메라 깊이 영상에서 측정값이 빠진 곳을 채우고, 어떤 방법이 어디서 틀리는지 공정하게 재는 도구</span>
+  </h1>
+  <div>
+    <div class="scale" aria-hidden="true"></div>
+    <div class="scale-l mono" aria-hidden="true"><span>가까움</span><span>깊이 색</span><span>멂</span></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><b class="mono">4/4</b><small>구멍 유형 모두 OpenCV Telea보다 낮은 오차</small></div>
+    <div class="stat"><b class="mono">−22%</b><small>반사 면 구멍 오차 (7.2 → 5.6cm)</small></div>
+    <div class="stat"><b class="mono">654</b><small>실제 센서 시험 장면 (NYU Depth v2 공식 분할)</small></div>
+    <div class="stat"><b class="mono">17</b><small>자동 시험 · 품질 기준 시험으로 배포 차단</small></div>
+  </div>
+  <div class="links">
+    <a class="btn primary" href="#lab">직접 돌려 보기</a>
+    <a class="btn" href="https://github.com/j75390/depth-fill-robot">GitHub 코드</a>
+    <a class="btn" href="https://github.com/j75390/depth-fill-robot/blob/main/docs/decision-log.md">판단 기록</a>
+  </div>
+</header>
+
+<section id="lab" aria-labelledby="lab-h">
+  <div class="eyebrow">직접 보기</div>
+  <h2 id="lab-h">구멍 난 깊이를 채워 보세요</h2>
+  <p class="lead">시험 장면에 구멍을 내고 방법별로 채운 실제 결과입니다. 가운데 손잡이를 끌면 전/후가 바뀌고, 오른쪽 3D 점은 끌어서 돌릴 수 있습니다. 오차는 센서가 실제로 잰 픽셀에서만 잽니다.</p>
+  <div class="lab">
+    <div class="pane">
+      <div class="controls">
+        <div class="seg" id="seg-scene" role="group" aria-label="장면"></div>
+      </div>
+      <div class="controls">
+        <div class="seg" id="seg-kind" role="group" aria-label="구멍 유형"></div>
+      </div>
+      <div class="cmp" id="cmp" aria-label="전후 비교 슬라이더">
+        <img id="before" alt="구멍 난 입력 깊이"><img id="after" class="after" alt="채운 깊이">
+        <div class="knob" id="knob"></div><span class="tag tl">입력 (구멍)</span><span class="tag tr" id="after-tag">채운 결과</span>
+      </div>
+      <div class="thumbs">
+        <figure><img id="rgb" alt="컬러 사진"><figcaption>컬러 카메라</figcaption></figure>
+        <figure><img id="gt" alt="실측 깊이"><figcaption>실측 깊이 (검은 곳은 센서가 원래 못 잰 곳)</figcaption></figure>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="controls"><div class="seg" id="seg-method" role="group" aria-label="보완 방법"></div></div>
+      <canvas id="cv" width="640" height="480" aria-label="3D 점 보기"></canvas>
+      <p class="hint">주황 점이 채운 부분입니다. 가만히 두면 천천히 돌고, 끌면 멈춥니다.</p>
+      <div class="bars" id="bars"></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="res-h">
+  <div class="eyebrow">결과 · 시험 654장 · 구멍 비율 약 15% · 시드 42</div>
+  <h2 id="res-h">한 가지를 바꿔서 기준선을 넘었습니다</h2>
+  <p class="lead">처음에는 구멍 속 깊이를 통째로 맞히게 했고 네 유형 모두 Telea보다 나빴습니다. Telea로 먼저 채운 값을 입력으로 주고 <b>보정값만</b> 배우게 바꾸자 네 유형 모두 넘었습니다. 장면 짝 비교 95% 구간이 모두 0 아래입니다.</p>
+  <div class="legend"><span><i style="background:var(--telea)"></i>OpenCV Telea (기준선)</span><span><i style="background:#4a5163"></i>U-Net 1차 (통째로)</span><span><i style="background:var(--fill)"></i>U-Net 2차 (보정값만)</span></div>
+  <div class="chart"><svg id="chart" viewBox="0 0 760 300" role="img" aria-label="구멍 유형별 평균 오차 막대 그래프"></svg></div>
+</section>
+
+<section aria-labelledby="demo-h">
+  <div class="eyebrow">시연 · python scripts/demo.py</div>
+  <h2 id="demo-h">명령 한 줄로 처음부터 끝까지 다시 잽니다</h2>
+  <p class="lead">데이터 불러오기 → 구멍 내기 → 방법 비교 → API 호출 → 품질 기준 시험 → 단위 시험. 품질 기준 시험은 일부러 나쁜 모델을 넣으면 종료 코드 1로 멈춥니다.</p>
+  <img class="wide" src="images/demo_terminal.gif" alt="터미널에서 시연 스크립트가 실행되는 화면" loading="lazy">
+</section>
+
+<section aria-labelledby="how-h">
+  <div class="eyebrow">만든 순서</div>
+  <h2 id="how-h">평가부터 세우고 모델은 나중에</h2>
+  <ol class="steps">
+    <li><h3>실제 센서 데이터</h3><p>NYU Depth v2 1,449장, 공식 학습 795 / 시험 654. 같은 방이 양쪽에 섞이지 않습니다.</p></li>
+    <li><h3>구멍 네 가지</h3><p>무작위, 물체 가장자리, 반사 면, 다른 장면의 실제 센서 누락 모양. 시드 고정.</p></li>
+    <li><h3>공정한 평가 도구</h3><p>모든 방법에 같은 장면, 같은 구멍. 알고리즘이 이미 채운 정답은 빼고 실측 픽셀만 잽니다.</p></li>
+    <li><h3>기준선 네 개</h3><p>안 채움, 평균, 확산, OpenCV Telea. 기준선이 약하면 결론도 틀립니다.</p></li>
+    <li><h3>작은 U-Net 두 개</h3><p>193만 파라미터. 깊이만 / 컬러+깊이. RTX 3060 Ti에서 5분.</p></li>
+    <li><h3>API와 품질 기준</h3><p>Flask <span class="mono">POST /v1/fill</span>(16비트 PNG, mm). 기준선보다 나쁘면 실패하는 시험.</p></li>
+  </ol>
+</section>
+
+<section aria-labelledby="fail-h">
+  <div class="eyebrow">잘 안 된 것도 그대로</div>
+  <h2 id="fail-h">틀린 곳과 고친 곳</h2>
+  <div class="notes">
+    <div class="note fix"><h3>버그: 기준선이 너무 약하게 나왔다</h3><p>OpenCV Telea가 평균 채우기보다 나빴습니다(0.9m). 이 버전은 실수형 깊이를 넣으면 결과가 깨졌습니다. 밀리미터 정수로 바꿔 0.905 → 0.072m. 못 잡았으면 "모델이 크게 이겼다"는 틀린 결론이었습니다.</p></div>
+    <div class="note miss"><h3>컬러를 더해도 나아지지 않았다</h3><p>컬러+깊이 모델이 깊이만 쓴 모델보다 나은 장면은 38~49%. 원인 추정과 다음 시도는 판단 기록에 있습니다.</p></div>
+    <div class="note miss"><h3>실제 센서 누락에서는 차이가 작다</h3><p>−4%, 이긴 장면 60%. 앞 60장만 재면 오히려 집니다. 그래서 품질 기준 시험은 시험 분할 전체로 판정합니다.</p></div>
+    <div class="note miss"><h3>창문·유리·먼 공간을 덮으면 크게 틀린다</h3><p>구멍 둘레의 가까운 깊이로 이어 붙여 0.6~0.9m 오차. 로봇에 쓰려면 이런 곳을 믿지 않도록 불확실도를 함께 내야 합니다.</p></div>
+  </div>
+  <img class="wide" src="images/failures.png" alt="오차가 가장 큰 시험 장면 네 개: 입력, 채운 결과, 구멍 속 오차" loading="lazy">
+</section>
+
+<footer>
+  NYU Depth v2(실제 Kinect 촬영)로 실험했고 실제 로봇은 쓰지 않았습니다. 120x160으로 줄여 작업했습니다. 코드와 모든 숫자는 <a href="https://github.com/j75390/depth-fill-robot">저장소</a>에서 다시 만들 수 있습니다.
+</footer>
+</div>
+
+<script src="viewer/data.js"></script>
+<script>
+(() => {
+const D = window.VIEWER_DATA, $ = (id) => document.getElementById(id);
+const KIND = { reflect: '반사 면', random: '무작위', edge: '물체 가장자리', sensor: '실제 센서 누락' };
+const METHOD = { opencv_telea: 'OpenCV Telea', unet_depth: 'U-Net (깊이)', unet_rgbd: 'U-Net (컬러+깊이)', diffusion: '확산' };
+const st = { scene: 1, kind: 'random', method: 'unet_depth' };
+
+function seg(el, entries, key) {
+  el.innerHTML = '';
+  for (const [v, t] of entries) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = t;
+    b.setAttribute('aria-pressed', String(st[key] == v));
+    b.addEventListener('click', () => { st[key] = key === 'scene' ? Number(v) : v; sync(); });
+    el.appendChild(b);
+  }
+}
+function sync() {
+  seg($('seg-scene'), D.scenes.map((s, i) => [i, `장면 ${s.name.replace('nyu_', '#')}`]), 'scene');
+  seg($('seg-kind'), Object.entries(KIND), 'kind');
+  seg($('seg-method'), Object.entries(METHOD).filter(([k]) => k !== 'diffusion'), 'method');
+  render();
+}
+
+let yaw = -0.4, pitch = 0.25, cur = null, idle = true;
+function render() {
+  const s = D.scenes[st.scene], c = s.cases[st.kind], m = c.methods[st.method];
+  $('before').src = c.input; $('after').src = m.img; $('rgb').src = s.rgb; $('gt').src = s.gt;
+  $('after-tag').textContent = METHOD[st.method];
+  cur = { s, c, m }; draw();
+  const order = ['diffusion', 'opencv_telea', 'unet_depth', 'unet_rgbd'];
+  const vmax = Math.max(...order.map((k) => c.methods[k].mae)) * 1.05;
+  $('bars').innerHTML = '<div class="eyebrow">이 장면의 구멍 속 평균 오차</div>' + order.map((k) => {
+    const v = c.methods[k].mae;
+    return `<div class="bar${k === st.method ? ' me' : ''}"><span>${METHOD[k]}</span><span class="track"><i style="width:${(v / vmax * 100).toFixed(1)}%"></i></span><span class="v mono">${(v * 100).toFixed(1)}cm</span></div>`;
+  }).join('');
+}
+function draw() {
+  if (!cur) return;
+  const { s, c, m } = cur, [h, w] = s.size, cv = $('cv'), g = cv.getContext('2d');
+  // NYU 카메라 내부값(fx≈518.9, cx≈325.6, cy≈253.7)을 자르고 줄인 크기에 맞춤
+  const sc = w / 560, fx = 518.9 * sc, cx = (325.6 - 41) * sc, cy = (253.7 - 45) * sc;
+  g.fillStyle = '#05060a'; g.fillRect(0, 0, cv.width, cv.height);
+  let zs = 0, n = 0;
+  for (const z of m.points) if (z > 0) { zs += z; n++; }
+  const zc = zs / n, pts = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const k = y * w + x, z = m.points[k]; if (!(z > 0)) continue;
+    const X = (x - cx) * z / fx, Y = (y - cy) * z / fx, Z = z - zc;
+    const X1 = X * Math.cos(yaw) - Z * Math.sin(yaw), Z1 = X * Math.sin(yaw) + Z * Math.cos(yaw);
+    const Y2 = Y * Math.cos(pitch) - Z1 * Math.sin(pitch), Z2 = Y * Math.sin(pitch) + Z1 * Math.cos(pitch) + 4.2;
+    if (Z2 <= 0.1) continue;
+    pts.push([Z2, X1 / Z2, Y2 / Z2, c.hole[k], k]);
+  }
+  pts.sort((a, b) => b[0] - a[0]);
+  const f = cv.width * 0.95;
+  for (const [z, u, v, hole, k] of pts) {
+    g.fillStyle = hole ? '#ff8a3d' : `rgb(${s.colors[k * 3]},${s.colors[k * 3 + 1]},${s.colors[k * 3 + 2]})`;
+    const r = Math.max(3, 16 / z);
+    g.fillRect(cv.width / 2 + u * f, cv.height / 2 + v * f, r, r);
+  }
+}
+
+// 전/후 슬라이더: 손대기 전에는 천천히 오가며 보여 준다
+const cmp = $('cmp');
+let pos = 50, auto = !matchMedia('(prefers-reduced-motion: reduce)').matches, t0 = performance.now();
+const setPos = (p) => { pos = p; $('after').style.clipPath = `inset(0 0 0 ${p}%)`; $('knob').style.left = p + '%'; };
+const slide = (e) => { const r = cmp.getBoundingClientRect(); setPos(Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100))); };
+cmp.addEventListener('pointerdown', (e) => { auto = false; cmp.setPointerCapture(e.pointerId); slide(e); });
+cmp.addEventListener('pointermove', (e) => { if (e.buttons) slide(e); });
+
+const cv = $('cv'); let drag = null;
+cv.addEventListener('pointerdown', (e) => { idle = false; auto = false; drag = [e.clientX, e.clientY, yaw, pitch]; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', (e) => { if (!drag) return; yaw = drag[2] + (e.clientX - drag[0]) * 0.01; pitch = Math.max(-1.2, Math.min(1.2, drag[3] + (e.clientY - drag[1]) * 0.01)); draw(); });
+cv.addEventListener('pointerup', () => { drag = null; });
+
+// 화면에 보일 때만, 초당 약 24번만 움직인다(배터리·스크린숏 부담을 줄이려고)
+let visible = true, last = 0;
+new IntersectionObserver((es) => { visible = es[0].isIntersecting; if (visible && auto) requestAnimationFrame(tick); }).observe($('lab'));
+function tick(now) {
+  if (!auto || !visible) return;
+  if (now - last > 42) {
+    last = now;
+    const t = (now - t0) / 1000;
+    setPos(50 + 42 * Math.sin(t * 0.9));
+    if (idle) { yaw = -0.4 + 0.45 * Math.sin(t * 0.5); draw(); }
+  }
+  requestAnimationFrame(tick);
+}
+sync();
+
+// 결과 막대 그래프 (MAE실측, m). 출처: README 결과표 = scripts/run_eval.py 출력
+const R = [
+  ['반사 면', 0.072, 0.099, 0.056], ['무작위', 0.148, 0.165, 0.130],
+  ['실제 센서 누락', 0.076, 0.127, 0.073], ['물체 가장자리', 0.107, 0.155, 0.105],
+];
+const svg = $('chart'), NS = 'http://www.w3.org/2000/svg';
+const L = 60, B = 250, T = 20, Wd = 740, ymax = 0.18, y = (v) => B - (v / ymax) * (B - T);
+const add = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; svg.appendChild(e); return e; };
+for (const v of [0, 0.05, 0.10, 0.15]) {
+  add('line', { x1: L, x2: Wd, y1: y(v), y2: y(v), stroke: '#262b34', 'stroke-width': 1 });
+  add('text', { x: L - 8, y: y(v) + 4, 'text-anchor': 'end', fill: '#9299a6', 'font-size': 11, 'font-family': 'JetBrains Mono, monospace' }, (v * 100).toFixed(0) + 'cm');
+}
+const gw = (Wd - L) / R.length, bw = 34, cols = ['#7f8aa0', '#4a5163', '#ff8a3d'];
+R.forEach(([name, tel, v1, v2], i) => {
+  const x0 = L + i * gw + (gw - bw * 3 - 8) / 2;
+  [tel, v1, v2].forEach((v, j) => {
+    const x = x0 + j * (bw + 4);
+    add('rect', { x, y: y(v), width: bw, height: B - y(v), rx: 3, fill: cols[j] });
+    add('text', { x: x + bw / 2, y: y(v) - 6, 'text-anchor': 'middle', fill: j === 2 ? '#ff8a3d' : '#9299a6', 'font-size': 11, 'font-family': 'JetBrains Mono, monospace', 'font-weight': j === 2 ? 600 : 400 }, (v * 100).toFixed(1));
+  });
+  add('text', { x: L + i * gw + gw / 2, y: B + 22, 'text-anchor': 'middle', fill: '#e9ebef', 'font-size': 13 }, name);
+  add('text', { x: L + i * gw + gw / 2, y: B + 40, 'text-anchor': 'middle', fill: '#5fd08a', 'font-size': 12, 'font-family': 'JetBrains Mono, monospace' }, `Telea 대비 ${Math.round((v2 - tel) / tel * 100)}%`);
+});
+svg.setAttribute('viewBox', '0 0 760 300');
+})();
+</script>
+</body>
+</html>

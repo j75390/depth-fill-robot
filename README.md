@@ -4,9 +4,12 @@
 
 > **결과 한 줄**: 실제 센서 데이터(NYU Depth v2 시험 654장)에서, Telea로 먼저 채우고 보정값만 배우는 작은 U-Net이 가장 강한 기준선(OpenCV Telea)보다 **구멍 유형 네 가지 모두에서** 오차가 낮았습니다(반사 면 −22%, 무작위 −12%, 실제 센서 누락 −4%, 가장자리 −2%. 장면 짝 비교 95% 구간이 모두 0 아래). 처음 설계(깊이를 통째로 맞히기)는 Telea를 넘지 못했고, 컬러를 더해도 나아지지 않았습니다. 둘 다 그대로 적었습니다.
 
-<img src="docs/images/examples.png" width="100%" alt="한 장면에 구멍 네 가지를 내고 방법별로 채운 결과">
+<img src="docs/images/demo.gif" width="100%" alt="깊이 영상의 구멍을 U-Net으로 채우는 장면과 3D 점">
 
-- 뷰어: [docs/viewer/index.html](docs/viewer/index.html) (전/후 슬라이더, 3D 점 보기. `python -m http.server`로 열기)
+<sub>시험 장면 3개(고르지 않고 뷰어와 같은 번호). 흰 선 안이 채운 곳, 3D의 주황 점이 채운 부분. 첫 장면은 U-Net이 Telea에 진 장면이라 그대로 두었습니다.</sub>
+
+- **소개 페이지**: [docs/index.html](docs/index.html) — 직접 돌려 보는 전/후 비교·3D 점, 결과 그래프, 실패 기록 (`cd docs; python -m http.server` 후 `http://localhost:8000`)
+- **한 번에 시연**: `python scripts/demo.py` — 데이터 → 구멍 → 비교 → API → 품질 기준(통과/일부러 실패) → 단위 시험 (약 100초)
 - 판단 기록: [docs/decision-log.md](docs/decision-log.md) — 모든 선택의 이유, 잘 안 된 시도, 버그
 - 구조 규칙: [docs/STRUCTURE.md](docs/STRUCTURE.md) · 시작 안내: [docs/HOME_START.md](docs/HOME_START.md)
 
@@ -45,12 +48,19 @@ NYU의 정답 깊이(`depths`)는 센서가 못 잰 곳을 **이미 알고리즘
 - **2차**(Telea로 먼저 채운 깊이를 입력으로 주고 **보정값만** 학습)만 바꿔서 네 유형 모두 Telea를 넘었습니다. 같은 장면끼리 비교하면 이긴 장면이 84~88%, 실제 센서 누락은 60~64%입니다.
 - **컬러를 더한 효과는 확인되지 않았습니다**(컬러 모델이 나은 장면 38~49%). 원인 추정과 다음 시도는 판단 기록에 있습니다.
 
+<img src="docs/images/examples.png" width="100%" alt="한 장면에 구멍 네 가지를 내고 방법별로 채운 결과">
+
 <img src="docs/images/training.png" width="60%" alt="2차 모델 학습 곡선">
 
 ### 실패 사례
 <img src="docs/images/failures.png" width="80%" alt="오차가 가장 큰 시험 장면 네 개">
 
 오차가 큰 장면은 모두 구멍이 **창문·유리·먼 공간처럼 깊이가 갑자기 멀어지는 곳을 넓게 덮은 경우**였습니다. 구멍 둘레가 가까운 물체라 가까운 깊이로 이어 붙였지만 정답은 그 뒤의 먼 공간이었습니다(0.6~0.9m 오차). 주변 값을 이어 붙이는 방식의 한계로, 로봇에 쓰려면 이런 곳을 믿지 않도록 **불확실도**를 함께 내야 합니다.
+
+### 시연 (터미널 실제 출력)
+<img src="docs/images/demo_terminal.gif" width="100%" alt="시연 스크립트 실행 화면: 방법 비교, API 호출, 품질 기준 통과와 일부러 넣은 나쁜 모델의 실패">
+
+품질 기준 시험은 결론과 같이 **시험 654장 전체**로 판정합니다. 앞 60장만 쓰면 실제 센서 누락 유형에서 U-Net이 집니다(0.0650m 대 Telea 0.0633m). 이긴 장면이 60%인 유형이라 표본이 작으면 뒤집히기 때문입니다.
 
 ### 이 과정에서 잡은 버그
 첫 평가에서 OpenCV Telea가 평균 채우기보다 나빴습니다(0.9m). 구멍 속 평균은 맞는데 픽셀마다 값이 튀는 것을 보고, 이 OpenCV 버전에서 **float32 깊이를 넣으면 Telea가 깨진다**는 것을 확인했습니다. 밀리미터 `uint16`으로 넣도록 고쳤고(0.905m → 0.072m), 같은 일이 다시 생기면 잡히도록 시험을 더했습니다. 이 버그를 못 잡았다면 기준선이 실제보다 훨씬 약하게 나와 "모델이 기준선을 크게 이겼다"는 잘못된 결론을 냈을 것입니다.
@@ -73,8 +83,10 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1      # 가상환경, 
 .\.venv\Scripts\python scripts\train_unet.py --model unet_depth  # RTX 3060 Ti에서 약 5분
 .\.venv\Scripts\python scripts\train_unet.py --model unet_rgbd
 .\.venv\Scripts\python scripts\run_eval.py                       # 모든 방법 비교표
-.\.venv\Scripts\python scripts\quality_gate.py --model unet_depth   # 기준선보다 나쁘면 종료 코드 1
+.\.venv\Scripts\python scripts\quality_gate.py --model unet_depth   # 시험 654장, 기준선보다 나쁘면 종료 코드 1
+.\.venv\Scripts\python scripts\demo.py                           # 처음부터 끝까지 시연(약 100초)
 .\.venv\Scripts\python scripts\make_figures.py                   # 그림, 뷰어 데이터
+.\.venv\Scripts\python scripts\make_demo_gif.py                  # README 맨 위 GIF
 .\.venv\Scripts\python -m pytest                                 # 시험 17개(데이터 없이 돈다)
 ```
 
@@ -92,7 +104,7 @@ src/depthfill/
   api/       Flask 서비스(웹 프레임워크는 여기서만)
 scripts/     준비, 학습, 평가, 품질 기준, 그림
 tests/       데이터 없이 도는 시험(구멍, 지표, 하네스, NYU 로더, API)
-docs/        판단 기록, 구조 규칙, 그림, 뷰어
+docs/        소개 페이지(index.html), 판단 기록, 구조 규칙, 그림, 뷰어
 ```
 
 ## 7. 실행 환경
@@ -108,4 +120,5 @@ Windows 11 · Python 3.12.10 · PyTorch 2.11.0+cu128 · NVIDIA GeForce RTX 3060 
 - [x] 모델 A · 모델 B · 개선 1회 (1차 실패 → 2차 잔차 학습)
 - [x] 뷰어 · 실패 사례 분석
 - [x] (선택) 모델 서비스 API · 응답 형식 시험 · 품질 기준 시험
+- [x] 시연 스크립트 · 시연 GIF · 소개 페이지
 - [ ] 다음: 불확실도 출력, 컬러 경로 분리, 원본 해상도 평가
