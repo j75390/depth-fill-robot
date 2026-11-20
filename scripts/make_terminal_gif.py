@@ -53,7 +53,7 @@ def frame(lines, fonts, cursor: str | None = None) -> Image.Image:
     d.rectangle([0, 0, W, 32], fill=(36, 39, 46))
     for i, col in enumerate([(255, 95, 86), (255, 189, 46), (39, 201, 63)]):
         d.ellipse([14 + i * 20, 10, 26 + i * 20, 22], fill=col)
-    draw_line(d, 8, " " * 10 + "depth-fill-robot  —  python scripts/demo.py", (160, 165, 175), fonts)
+    draw_line(d, 8, " " * 10 + "Depth Patch  —  python scripts/demo.py", (160, 165, 175), fonts)
     shown = lines[-ROWS:]
     for i, (style, text) in enumerate(shown):
         draw_line(d, 44 + i * LINE, text, COLORS.get(style, FG), fonts)

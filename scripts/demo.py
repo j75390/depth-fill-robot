@@ -77,7 +77,7 @@ def main() -> None:
     cfg = load_config()
     kinds, ratio, seed = cfg["holes"]["kinds"], cfg["holes"]["ratio"], cfg["seed"]
 
-    say("depth-fill-robot 시연 — 로봇 카메라 깊이 영상의 빈 곳 채우기", "hi")
+    say("Depth Patch 시연 — 로봇 카메라 깊이 영상의 빈 곳 채우기", "hi")
     say("모든 숫자는 지금 이 자리에서 다시 계산합니다.", "dim")
 
     step(1, "실제 센서 데이터 불러오기 (NYU Depth v2, 공식 시험 분할)")

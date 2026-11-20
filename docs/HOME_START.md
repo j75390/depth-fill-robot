@@ -8,8 +8,8 @@
 
 ## 1. 받기 (5분)
 ```powershell
-git clone https://github.com/j75390/depth-fill-robot.git
-cd depth-fill-robot
+git clone https://github.com/j75390/depth-patch.git
+cd depth-patch
 ```
 
 ## 2. 환경 만들기 (10분)
